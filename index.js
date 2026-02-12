@@ -37,62 +37,62 @@ switch (command) {
         break;
 
 
-    case "stats":
+        case "stats":
         const Table = require("cli-table3");
         const stats = statsService.getDashboardStats();
 
-        console.log(`${cyan}\n📊 DEV DASHBOARD SUMMARY${reset}`);
-        console.log(`${gray}====================================${reset}`);
+        // Style Helpers
+        const c = { 
+            cyan: "\x1b[36m", yellow: "\x1b[33m", green: "\x1b[32m", 
+            red: "\x1b[31m", gray: "\x1b[90m", bold: "\x1b[1m", reset: "\x1b[0m" 
+        };
 
-        // 1. TASKS SUMMARY (Fixed Truncation)
-        const allTasks = stats.tasks || [];
-        const total = allTasks.length;
-        const pending = allTasks.filter(t => t.status === "pending").length;
-        const done = allTasks.filter(t => t.status === "completed").length;
-        console.log(`${yellow}📝 TASKS:${reset} Total: ${total} | ${yellow}Pending: ${pending}${reset} | ${green}Done: ${done}${reset}\n`);
+        const createBar = (current, target) => {
+            const size = 10;
+            const progress = Math.min(Math.floor((current / target) * size), size);
+            return `[${c.green}${"#".repeat(progress)}${c.gray}${"-".repeat(size - progress)}${c.reset}]`;
+        };
 
-        // 2. STUDY TABLE (Empty Array Fallback)
-        const studyTable = new Table({
-            head: [`${magenta}Subject${reset}`, `${magenta}Hours${reset}`],
-            colWidths: [20, 10]
-        });
-        
-        const studyMap = {};
-        const studyData = stats.study || []; 
-        studyData.forEach(s => studyMap[s.subject] = (studyMap[s.subject] || 0) + s.hours);
-        Object.entries(studyMap).forEach(([sub, hr]) => studyTable.push([sub, hr + 'h']));
+        console.log(`\n${c.bold}${c.cyan}🚀 DEV DASHBOARD v2.0${c.reset}`);
+        console.log(`${c.gray}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
 
-        console.log(`${magenta}📚 STUDY LOG${reset} (Streak: ${stats.studyStreak || 0} days)`);
-        console.log(studyTable.toString());
+        // 1. MINI-CARD SUMMARY
+        const pending = (stats.tasks || []).filter(t => t.status === "pending").length;
+        const streak = stats.studyStreak || 0;
+        console.log(`${c.yellow}📝 Tasks:${c.reset} ${pending} Pending  |  ${c.cyan}📚 Streak:${c.reset} ${streak} Days  |  ${c.green}🎯 Goals:${c.reset} ${(stats.goals || []).length}\n`);
 
-        // 3. WORKOUT TABLE (Empty Array Fallback)
-        const workoutTable = new Table({
-            head: [`${cyan}Exercise${reset}`, `${cyan}Sessions${reset}`],
-            colWidths: [20, 10]
+        // 2. DETAILED TASKS TABLE
+        const taskTable = new Table({
+            head: [c.gray+'ID'+c.reset, c.gray+'Status'+c.reset, c.gray+'Task Title'+c.reset],
+            colWidths: [5, 12, 30],
+            style: { head: [], border: [] }
         });
 
-        const workoutMap = {};
-        const workoutData = stats.workout || [];
-        workoutData.forEach(w => workoutMap[w.exercise] = (workoutMap[w.exercise] || 0) + 1);
-        Object.entries(workoutMap).forEach(([ex, count]) => workoutTable.push([ex, count]));
+        (stats.tasks || []).slice(0, 5).forEach(t => {
+            const statusLabel = t.status === 'completed' ? `${c.green}✔ DONE${c.reset}` : `${c.yellow}⏳ PENDING${c.reset}`;
+            taskTable.push([t.id, statusLabel, t.title]);
+        });
+        console.log(`${c.bold}📋 RECENT TASKS${c.reset}`);
+        console.log(taskTable.toString());
 
-        console.log(`\n${cyan}💪 WORKOUT LOG${reset}`);
-        console.log(workoutTable.toString());
-
-        // 4. GOALS PROGRESS (Empty Array Fallback)
+        // 3. GOALS WITH PROGRESS BARS
         const goalTable = new Table({
-            head: [`${green}Goal${reset}`, `${green}Progress${reset}`, `${green}%${reset}`],
-            colWidths: [20, 12, 8]
+            head: [c.gray+'Goal'+c.reset, c.gray+'Progress'+c.reset, c.gray+'Bar'+c.reset, c.gray+'%'+c.reset],
+            style: { head: [], border: [] }
         });
 
-        const goalsData = stats.goals || [];
-        goalsData.forEach(g => {
-            const pct = g.target > 0 ? Math.min(Math.round((g.current / g.target) * 100), 100) : 0;
-            goalTable.push([g.name, `${g.current}/${g.target}`, `${pct}%`]);
+        (stats.goals || []).forEach(g => {
+            const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+            const bar = createBar(g.current, g.target);
+            goalTable.push([g.name, `${g.current}/${g.target}`, bar, `${pct}%`]);
         });
 
-        console.log(`\n${green}🎯 GOALS${reset}`);
-        console.log(goalTable.toString() + "\n");
+        console.log(`\n${c.bold}🎯 ACTIVE GOALS${c.reset}`);
+        console.log(goalTable.toString());
+
+        // 4. FOOTER SUMMARY
+        const totalHours = (stats.study || []).reduce((acc, curr) => acc + (curr.hours || 0), 0);
+        console.log(`\n${c.gray}📊 Total Study Investment: ${c.reset}${c.bold}${totalHours} Hours${c.reset}\n`);
         break;
 
     default:
