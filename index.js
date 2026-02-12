@@ -37,62 +37,66 @@ switch (command) {
         break;
 
 
-        case "stats":
+    case "stats":
         const Table = require("cli-table3");
         const stats = statsService.getDashboardStats();
 
-        // Style Helpers
-        const c = { 
+        const c = {
             cyan: "\x1b[36m", yellow: "\x1b[33m", green: "\x1b[32m", 
-            red: "\x1b[31m", gray: "\x1b[90m", bold: "\x1b[1m", reset: "\x1b[0m" 
+            magenta: "\x1b[35m", red: "\x1b[31m", gray: "\x1b[90m", 
+            bold: "\x1b[1m", reset: "\x1b[0m"
         };
 
-        const createBar = (current, target) => {
+        const drawBar = (cur, tar) => {
             const size = 10;
-            const progress = Math.min(Math.floor((current / target) * size), size);
-            return `[${c.green}${"#".repeat(progress)}${c.gray}${"-".repeat(size - progress)}${c.reset}]`;
+            const filled = Math.min(Math.floor((cur / (tar || 1)) * size), size);
+            const color = (filled === size) ? c.green : (filled > 0 ? c.yellow : c.gray);
+            return `${color}${"#".repeat(filled)}${c.gray}${"-".repeat(size - filled)}${c.reset}`;
         };
 
-        console.log(`\n${c.bold}${c.cyan}🚀 DEV DASHBOARD v2.0${c.reset}`);
-        console.log(`${c.gray}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
+        console.log(`\n${c.bold}${c.cyan}🚀 DEVDASH v2.1${c.reset} ${c.gray}• PRO DASHBOARD${c.reset}`);
+        console.log(`${c.gray}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
 
-        // 1. MINI-CARD SUMMARY
         const pending = (stats.tasks || []).filter(t => t.status === "pending").length;
-        const streak = stats.studyStreak || 0;
-        console.log(`${c.yellow}📝 Tasks:${c.reset} ${pending} Pending  |  ${c.cyan}📚 Streak:${c.reset} ${streak} Days  |  ${c.green}🎯 Goals:${c.reset} ${(stats.goals || []).length}\n`);
+        const totalHrs = (stats.study || []).reduce((acc, s) => acc + (s.hours || 0), 0);
+        console.log(`${c.yellow}⚠ ${pending} Pending${c.reset}  |  ${c.magenta}📚 ${totalHrs}h Study${c.reset}  |  ${c.green}🔥 ${stats.studyStreak || 0} Day Streak${c.reset}\n`);
 
-        // 2. DETAILED TASKS TABLE
         const taskTable = new Table({
             head: [c.gray+'ID'+c.reset, c.gray+'Status'+c.reset, c.gray+'Task Title'+c.reset],
-            colWidths: [5, 12, 30],
-            style: { head: [], border: [] }
+            colWidths: [6, 12, 30]
         });
 
-        (stats.tasks || []).slice(0, 5).forEach(t => {
-            const statusLabel = t.status === 'completed' ? `${c.green}✔ DONE${c.reset}` : `${c.yellow}⏳ PENDING${c.reset}`;
-            taskTable.push([t.id, statusLabel, t.title]);
+        (stats.tasks || []).slice(-5).reverse().forEach(t => {
+            const status = t.status === 'completed' ? `${c.green}● DONE${c.reset}` : `${c.yellow}○ OPEN${c.reset}`;
+            taskTable.push([t.id, status, t.title]);
         });
         console.log(`${c.bold}📋 RECENT TASKS${c.reset}`);
         console.log(taskTable.toString());
 
-        // 3. GOALS WITH PROGRESS BARS
+        const activityTable = new Table({
+            head: [c.magenta+'📚 Recent Study'+c.reset, c.cyan+'💪 Recent Workouts'+c.reset],
+            colWidths: [24, 24]
+        });
+
+        const recentS = (stats.study || []).slice(-3).map(s => `${s.subject}: ${s.hours}h`).join('\n') || 'No logs yet';
+        const recentW = (stats.workout || []).slice(-3).map(w => `${w.exercise}: ${w.sets}s`).join('\n') || 'No logs yet';
+        activityTable.push([recentS, recentW]);
+        
+        console.log(`\n${c.bold}📊 ACTIVITY LOGS${c.reset}`);
+        console.log(activityTable.toString());
+
         const goalTable = new Table({
             head: [c.gray+'Goal'+c.reset, c.gray+'Progress'+c.reset, c.gray+'Bar'+c.reset, c.gray+'%'+c.reset],
-            style: { head: [], border: [] }
+            colWidths: [18, 12, 14, 8]
         });
 
         (stats.goals || []).forEach(g => {
             const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
-            const bar = createBar(g.current, g.target);
-            goalTable.push([g.name, `${g.current}/${g.target}`, bar, `${pct}%`]);
+            const pctColor = pct === 100 ? c.green : (pct >= 50 ? c.yellow : c.gray);
+            goalTable.push([g.name, `${g.current}/${g.target}`, `[${drawBar(g.current, g.target)}]`, pctColor + pct + '%' + c.reset]);
         });
-
         console.log(`\n${c.bold}🎯 ACTIVE GOALS${c.reset}`);
-        console.log(goalTable.toString());
-
-        // 4. FOOTER SUMMARY
-        const totalHours = (stats.study || []).reduce((acc, curr) => acc + (curr.hours || 0), 0);
-        console.log(`\n${c.gray}📊 Total Study Investment: ${c.reset}${c.bold}${totalHours} Hours${c.reset}\n`);
+        console.log(goalTable.toString() + "\n");
         break;
 
     default:
